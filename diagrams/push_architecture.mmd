@@ -1,0 +1,47 @@
+flowchart LR
+  subgraph Mobile[Mobile app]
+    App[App]
+  end
+
+  subgraph Backend[Microservices]
+    Orders[orders-service]
+    Delivery[delivery-service]
+    Marketing[marketing-service]
+    Cart[cart-service]
+  end
+
+  subgraph Broker[Event bus]
+    Bus[(Kafka/RabbitMQ)]
+    DLQ[(DLQ)]
+  end
+
+  subgraph Notif[Notifications]
+    NS[notification-service]
+    Tokens[device-token-service]
+    Templates[template storage]
+    Scheduler[scheduler / quiet hours]
+  end
+
+  subgraph Gateway[Push]
+    PG[push-gateway]
+    APNS[APNs]
+    FCM[FCM]
+  end
+
+  App -->|register/update token| Tokens
+
+  Orders -->|domain events| Bus
+  Delivery -->|domain events| Bus
+  Marketing -->|campaign events| Bus
+  Cart -->|abandoned cart events| Bus
+
+  Bus -->|consume| NS
+  NS --> Templates
+  NS --> Tokens
+  NS --> Scheduler
+  NS -->|push request| PG
+  PG --> APNS
+  PG --> FCM
+  NS -->|on permanent error: invalidate token| Tokens
+  NS -->|on temporary error: retry| Bus
+  NS -->|failed after retries| DLQ
